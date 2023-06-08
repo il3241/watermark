@@ -65,14 +65,14 @@ def slicing(cantainer):
 
 def combine_slices(slice_matrix, start, end):
 	main_matrix = []
-
+	#rprint(start); rprint(end)
 	for j in range(8):
 		row = []
 		for h in range(start, end):
 			for ind in range(8):
 				row.append(slice_matrix[h][j][ind])
 		main_matrix.append(row)
-		
+	#print(len(main_matrix), len(main_matrix[0]))
 	
 	return main_matrix
 
@@ -104,10 +104,11 @@ def get_force(dc, med, z):
 		return abs(z * ((dc - med) / dc))
 
 
-def insertion(b1, b2, delta, m, bit): 
-	t = 80
-	k = 12
+def insertion(b1, b2, delta, m, bit, t_inp, k_inp): 
+	t = t_inp
+	k = k_inp
 	if bit:
+		
 		if delta > (t - k): 
 			while delta > (t - k): 
 				b1 = b1 - m
@@ -116,6 +117,7 @@ def insertion(b1, b2, delta, m, bit):
 			while delta < k: 
 				b1 = b1 + m
 				delta = b1 - b2
+				
 		elif delta < (-t/2): 
 			while delta > (-t - k): 
 				b1 = b1 - m
@@ -144,50 +146,56 @@ def conv_DWM(dwm):
 	return row
 
 
-def INSERT(container : Image, watermark : np.array, h_image : int, w_image : int, h_dwm : int, w_dwm : int): 
+def INSERT(container : Image, watermark : np.array, h_image : int, w_image : int, h_dwm : int, w_dwm : int, z_inp : int, t_inp, k_inp): 
 	np.set_printoptions(suppress=True)
 	container = container.convert('RGB')
+	
 	container_matrix = read_to_matrix(container, h_image, w_image)
+	
 	container_matrix = slicing(container_matrix)
+	
 	k=0
 	bits = conv_DWM(watermark) 
 	first_sector = container_matrix[0]
 	first_sector_DCT = dct(first_sector)
 
 	for i in range(len(container_matrix)-1): 
+		
 		sector_default = container_matrix[i]
 		sector_DCT = dct(sector_default)
+		
 		#print(sector_DCT)
 		dc = sector_DCT[0][0]
 		med = get_med(sector_DCT)
-		z = 2
+		z = z_inp
 		m = get_force(dc, med, z)
 
 		next_sector_default = container_matrix[i+1]
 		next_sector_DCT = dct(next_sector_default)
 		bit = bits[k]
+		
 		k += 1
 		if i % 2 == 0: 
 			x_0 = 0
 			y_0 = 4
-
+			
 			b1 = sector_DCT[y_0][x_0]
 			b2 = next_sector_DCT[y_0][x_0]
 		
 			delta_LR = b1 - b2
 
-			b1_mod = insertion(b1, b2, delta_LR, m, bit)
+			b1_mod = insertion(b1, b2, delta_LR, m, bit, t_inp, k_inp)
 			sector_DCT[y_0][x_0] = b1_mod
 		elif i % 2 == 1: 
 			x_0 = 0
 			y_0 = 5
-
+		
 			b1 = sector_DCT[y_0][x_0]
 			b2 = next_sector_DCT[y_0][x_0]
 		
 			delta_LR = b1 - b2
 
-			b1_mod = insertion(b1, b2, delta_LR, m, bit)
+			b1_mod = insertion(b1, b2, delta_LR, m, bit, t_inp, k_inp)
 			sector_DCT[y_0][x_0] = b1_mod
 		sector_inv_DCT = inv_dct(sector_DCT)
 		tp = []
@@ -230,7 +238,7 @@ def INSERT(container : Image, watermark : np.array, h_image : int, w_image : int
 
 	delta_LR = b1 - b2
 
-	b1_mod = insertion(b1, b2, delta_LR, m, bit)
+	b1_mod = insertion(b1, b2, delta_LR, m, bit, t_inp, k_inp)
 	sector_DCT[y_0][x_0] = b1_mod
 	sector_inv_DCT = inv_dct(sector_DCT)
 	tp = []
@@ -244,13 +252,15 @@ def INSERT(container : Image, watermark : np.array, h_image : int, w_image : int
 
 	container_out = []
 	tp = []
-	for i in range(0, len(container_matrix), 8): 
-		tp = combine_slices(container_matrix, i,i+8)
+	step = h_image // 8
+
+	for i in range(0, len(container_matrix), step): 
+		tp = combine_slices(container_matrix, i,i+step)
 		#print(i, i+8)
 		for elem in tp: container_out.append(elem)
 		tp = []
 
-	#print(len(container_out), len(container_out[0]))
+	
 	return container_out
 	#######################################
 	#######################################

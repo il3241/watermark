@@ -1,6 +1,8 @@
 from PIL import Image
 from cprint import *
+from math import log10
 import numpy as np
+from skimage.metrics import structural_similarity as ssim
 
 def check(h_img, w_img, h_wat, w_wat): 
     if h_img != w_img:    print(1); return False
@@ -25,21 +27,23 @@ def task():
 
 def get_watermark_type(): 
 	bprint("Выберите ЦВЗ")
-	bprint("1 - ЦВЗ 16x16;")
-	bprint("2 - ЦВЗ 8x8.")
-	typeW = int(input())
+	bprint("1 - ЦВЗ 32x32 (для изображений 256x256);")
+	bprint("2 - ЦВЗ 16x16 (для изображений 128x128);")
+	bprint("3 - ЦВЗ 8x8 (для изображений 64x64).")
+	bprint("Либо введите название файла со своим ЦВЗ")
+	typeW = input()
 	return typeW
 
 
 def insert_to_start(container : Image, h_image : int, w_image : int, matrix): 
 	container = container.convert('RGB')
-	print(len(matrix), len(matrix[0]), h_image, w_image)
+	#print(len(matrix), len(matrix[0]), h_image, w_image)
 	for row in range(h_image):
 		for col in range(w_image): 
 			pos = (col,row)
 			# Получваем значения RGB пикселя
 			r, g, b = container.getpixel(pos)
-		
+			#print(row, col)
 			b_mod = int(matrix[row][col])
 			container.putpixel(pos, (r, g, b_mod))
 	return container
@@ -103,16 +107,73 @@ def inv_arnold_transformation(arnold_watermark_matrix : np.array, watermark_size
 				#np.copyto(arnold_matrix[new_i:new_i + watermark_matrix.shape[0], new_j:new_j + watermark_matrix.shape[1]], watermark_matrix)
 	#print("arnold", inv_arnold_matrix)
 	inv_arnold_matrix = np.array(inv_arnold_matrix)
+
+
 	return inv_arnold_matrix
 
 
-def to_watermark_matrix(dwm): 
+def to_watermark_matrix(dwm, step): 
 	matrix_dwm = []
 	st = 0
-	for i in range(len(dwm)//8): 
+
+	for i in range(step): 
 		row = []
-		for j in range(st, st+len(dwm)//8): 
+		for j in range(st, st+step): 
 			row.append(dwm[j])
 		matrix_dwm.append(row)
-		st += len(dwm)//8
+		st += step
 	return np.array(matrix_dwm)
+
+
+
+def get_mse(
+        old_img : Image, 
+        new_img : Image) -> float: 
+	old_img = old_img.convert('RGB')
+	new_img = new_img.convert('RGB')
+	size_of_img = (old_img.size)
+	size = size_of_img[0] * size_of_img[1]
+	delta_sum = 0
+
+	for y in range(size_of_img[1]):
+		for x in range(size_of_img[0]):
+			pos = (x,y)
+			r_old, g_old, b_old = old_img.getpixel(pos)
+			r_new, g_new, b_new = new_img.getpixel(pos)
+			
+			delta = b_old - b_new
+
+			delta_sum += pow(delta,2)
+
+	MSE = delta_sum / (size)
+
+	return MSE
+
+def get_psnr(
+		MSE : float) -> float: 
+	PSNR = 10 * log10((255*255)/MSE)
+
+	return PSNR
+
+def get_rmse(
+		MSE : float) -> float: 
+	RMSE = pow(MSE, 0.5)
+
+	return RMSE
+
+
+def get_ssim(
+		old_img : Image, 
+        new_img : Image): 
+	
+	old_arr = np.array(old_img)
+	new_arr = np.array(new_img)
+
+	b_old = old_arr[:, :, 2]
+	b_new = new_arr[:, :, 2]
+
+	SSIM = ssim(b_old, b_new)
+
+	return SSIM
+
+

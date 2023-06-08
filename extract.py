@@ -1,5 +1,6 @@
 from PIL import Image
 import numpy as np 
+from cprint import *
 
 def read_to_matrix(container : Image, h_image : int, w_image : int): 
 	
@@ -59,14 +60,14 @@ def dct(sector):
 	return np.matmul(np.matmul(dct_mx, sector), dct_mx.T)
 
 
-def extraction(stego_cont : Image): 
+def extraction(stego_cont : Image, t_inp): 
 	np.set_printoptions(suppress=True)
 	stego_cont = stego_cont.convert('RGB')
 	w_image, h_image = stego_cont.size
 	container_matrix = read_to_matrix(stego_cont, h_image, w_image)
 	container_matrix = slicing(container_matrix)
 
-	t = 80
+	t = t_inp
 	bits = []
 
 	first_sector = container_matrix[0]
@@ -80,7 +81,7 @@ def extraction(stego_cont : Image):
 		if i % 2 == 0: 
 			x_0 = 0
 			y_0 = 4
-			
+
 			b1 = sector_DCT[y_0][x_0]
 			b2 = next_sector_DCT[y_0][x_0]
 		
@@ -89,11 +90,14 @@ def extraction(stego_cont : Image):
 			if (delta_LR < -t) or ((delta_LR > 0) and (delta_LR < t)): 
 				bits.append(1)
 			elif (delta_LR > t) or ((delta_LR < 0) and (delta_LR > -t)): 
+				bits.append(0)
+			else: 
 				bits.append(0)
 		else: 
 			x_0 = 0
 			y_0 = 5
 			
+
 			b1 = sector_DCT[y_0][x_0]
 			b2 = next_sector_DCT[y_0][x_0]
 		
@@ -103,9 +107,12 @@ def extraction(stego_cont : Image):
 				bits.append(1)
 			elif (delta_LR > t) or ((delta_LR < 0) and (delta_LR > -t)): 
 				bits.append(0)
-	
+			else: 
+				bits.append(0)
+				
 	x_0 = 0
 	y_0 = 6
+
 	last = len(container_matrix)-1
 	sector_default = container_matrix[last]
 	sector_DCT = dct(sector_default)
@@ -118,6 +125,8 @@ def extraction(stego_cont : Image):
 	if (delta_LR < -t) or ((delta_LR > 0) and (delta_LR < t)): 
 		bits.append(1)
 	elif (delta_LR > t) or ((delta_LR < 0) and (delta_LR > -t)): 
+		bits.append(0)
+	else: 
 		bits.append(0)
 	
 	return bits 
